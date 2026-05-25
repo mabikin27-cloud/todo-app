@@ -54,6 +54,7 @@ export default function Home() {
   const [scheduledDate, setScheduledDate] = useState('')
   const [deadline, setDeadline] = useState('')
   const [sortByPriority, setSortByPriority] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -102,6 +103,10 @@ export default function Home() {
 
   const deleteTodo = (id: string) => {
     setTodos(prev => prev.filter(t => t.id !== id))
+  }
+
+  const updateTodo = (id: string, updates: Partial<Pick<Todo, 'priority' | 'scheduledDate' | 'deadline'>>) => {
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
   }
 
   const today = getLocalDateString()
@@ -231,69 +236,133 @@ export default function Home() {
                     {dateTodos.map(todo => {
                       const daysLeft = todo.deadline ? getDaysRemaining(todo.deadline) : null
                       const isOverdue = daysLeft !== null && daysLeft < 0
+                      const isEditing = editingId === todo.id
                       return (
                         <li
                           key={todo.id}
-                          className={`flex items-center gap-3 rounded-2xl px-4 py-3 group transition ${
+                          className={`rounded-2xl px-4 py-3 group transition ${
                             isOverdue ? 'bg-red-50 border border-red-200' : 'bg-pink-50'
                           }`}
                         >
-                          <button
-                            onClick={() => toggleTodo(todo.id)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition cursor-pointer ${
-                              todo.completed
-                                ? 'bg-gradient-to-r from-pink-400 to-violet-400 border-transparent'
-                                : 'border-pink-300 hover:border-pink-400'
-                            }`}
-                          >
-                            {todo.completed && (
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => toggleTodo(todo.id)}
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition cursor-pointer ${
+                                todo.completed
+                                  ? 'bg-gradient-to-r from-pink-400 to-violet-400 border-transparent'
+                                  : 'border-pink-300 hover:border-pink-400'
+                              }`}
+                            >
+                              {todo.completed && (
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+
+                            {todo.priority && (
+                              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${PRIORITY_CONFIG[todo.priority].tag}`}>
+                                {todo.priority}
+                              </span>
                             )}
-                          </button>
 
-                          {todo.priority && (
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${PRIORITY_CONFIG[todo.priority].tag}`}>
-                              {todo.priority}
-                            </span>
-                          )}
-
-                          <span className={`flex-1 text-sm ${
-                            todo.completed
-                              ? 'line-through text-pink-300'
-                              : isOverdue
-                              ? 'text-red-500'
-                              : 'text-gray-600'
-                          }`}>
-                            {todo.text}
-                          </span>
-
-                          {daysLeft !== null && (
-                            <span className={`text-xs flex-shrink-0 font-medium ${
-                              daysLeft < 0
-                                ? 'text-red-400'
-                                : daysLeft === 0
-                                ? 'text-amber-400'
-                                : 'text-violet-300'
+                            <span className={`flex-1 text-sm ${
+                              todo.completed
+                                ? 'line-through text-pink-300'
+                                : isOverdue
+                                ? 'text-red-500'
+                                : 'text-gray-600'
                             }`}>
-                              {daysLeft < 0
-                                ? `${Math.abs(daysLeft)}日超過`
-                                : daysLeft === 0
-                                ? '今日まで'
-                                : `あと${daysLeft}日`}
+                              {todo.text}
                             </span>
-                          )}
 
-                          <button
-                            onClick={() => deleteTodo(todo.id)}
-                            className="text-pink-200 hover:text-pink-400 transition opacity-0 group-hover:opacity-100 cursor-pointer"
-                            aria-label="削除"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                            {daysLeft !== null && (
+                              <span className={`text-xs flex-shrink-0 font-medium ${
+                                daysLeft < 0
+                                  ? 'text-red-400'
+                                  : daysLeft === 0
+                                  ? 'text-amber-400'
+                                  : 'text-violet-300'
+                              }`}>
+                                {daysLeft < 0
+                                  ? `${Math.abs(daysLeft)}日超過`
+                                  : daysLeft === 0
+                                  ? '今日まで'
+                                  : `あと${daysLeft}日`}
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => setEditingId(isEditing ? null : todo.id)}
+                              className={`transition cursor-pointer ${
+                                isEditing
+                                  ? 'text-violet-400'
+                                  : 'text-pink-200 hover:text-violet-400 opacity-0 group-hover:opacity-100'
+                              }`}
+                              aria-label="編集"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+
+                            <button
+                              onClick={() => deleteTodo(todo.id)}
+                              className="text-pink-200 hover:text-pink-400 transition opacity-0 group-hover:opacity-100 cursor-pointer"
+                              aria-label="削除"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {isEditing && (
+                            <div className="mt-2 pt-2 border-t border-pink-100 flex flex-wrap items-center gap-3 text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-400">優先度</span>
+                                {PRIORITY_ORDER.map(p => (
+                                  <button
+                                    key={p}
+                                    onClick={() => updateTodo(todo.id, { priority: todo.priority === p ? undefined : p })}
+                                    className={`w-7 h-7 rounded-full font-bold border transition cursor-pointer ${
+                                      todo.priority === p
+                                        ? PRIORITY_CONFIG[p].tag
+                                        : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-1 text-gray-400">
+                                  <span>予定日</span>
+                                  <input
+                                    type="date"
+                                    value={todo.scheduledDate || ''}
+                                    onChange={e => updateTodo(todo.id, { scheduledDate: e.target.value || undefined })}
+                                    className="border border-pink-200 rounded-lg px-2 py-1 text-gray-500 outline-none focus:border-pink-300 text-xs cursor-pointer"
+                                  />
+                                </label>
+                                <label className="flex items-center gap-1 text-gray-400">
+                                  <span>期限</span>
+                                  <input
+                                    type="date"
+                                    value={todo.deadline || ''}
+                                    onChange={e => updateTodo(todo.id, { deadline: e.target.value || undefined })}
+                                    className="border border-pink-200 rounded-lg px-2 py-1 text-gray-500 outline-none focus:border-pink-300 text-xs cursor-pointer"
+                                  />
+                                </label>
+                              </div>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="ml-auto text-xs px-3 py-1 rounded-full bg-violet-100 text-violet-500 border border-violet-200 cursor-pointer hover:opacity-80 transition"
+                              >
+                                完了
+                              </button>
+                            </div>
+                          )}
                         </li>
                       )
                     })}
